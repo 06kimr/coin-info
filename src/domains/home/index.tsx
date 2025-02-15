@@ -7,19 +7,33 @@ import {
   TickerListHandlerResult,
 } from "@/api/cryptocurrency/ticker/types";
 import { useQuery, UseQueryOptions } from "@tanstack/react-query";
-import { FC } from "react";
-import { formatNumber } from "./utils";
+import { FC, useState } from "react";
+import { formatNumber, sortByName, sortByVolume } from "./utils";
+import { api_getSavedTickerList } from "./api";
+import { SaveButton } from "./SaveButton";
+
+type SortType = "volume" | "name";
+export const DEFAULT_SORT = "volume";
 
 interface Props {}
 
 const HomeMain: FC<Props> = () => {
+  const [sort_by, setSortBy] = useState<SortType>(DEFAULT_SORT);
   const { data: map } = useQuery(getCurrencyListQueryOptions());
-  const { data: list } = useQuery(getTickerListQueryOptions());
+  const { data: list } = useQuery(getTickerListQueryOptions({ sort_by }));
+  const { data: saved_set } = useQuery(getSavedTickerSetQueryOptions());
 
-  console.log("data", map);
+  console.log("data", saved_set);
 
   return (
     <main>
+      <header>
+        <h1>암호화폐 목록</h1>
+        <div>
+          <button onClick={() => setSortBy("volume")}>거래금액순</button>
+          <button onClick={() => setSortBy("name")}>이름순</button>
+        </div>
+      </header>
       <section>
         <ol>
           {list?.map((item) => {
@@ -44,6 +58,8 @@ const HomeMain: FC<Props> = () => {
                 <br />
                 <span>{formatNumber(item.target_volume, 0)}</span>
                 <br />
+                <SaveButton ticker={ticker} is_saved={!!saved_set?.has(ticker)} >저장</SaveButton>
+                <br />
                 <br />
               </li>
             );
@@ -61,26 +77,31 @@ type CurrencyListResponse = Extract<
   GetCurrencyListReturnType
 >;
 
-type TickerListResponse = Extract<
+export type TickerListResponse = Extract<
   TickerListHandlerResult,
   GetTickerListReturnType
 >;
 
-export function getTickerListQueryOptions(): UseQueryOptions<
-  TickerListResponse,
-  Error,
-  TickerListResponse["tickers"]
-> {
+export function getTickerListQueryOptions(params: {
+  sort_by: SortType;
+}): UseQueryOptions<TickerListResponse, Error, TickerListResponse["tickers"]> {
+  const { sort_by } = params;
   return {
     queryKey: ["ticker-list"],
     queryFn: async () => {
-      const result = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/tickers`);
+      const result = await fetch(
+        `${process.env.NEXT_PUBLIC_BASE_URL}/api/tickers`
+      );
       const data = await result.json();
 
       return data;
     },
     select: (data) => {
-      return data.tickers;
+      const sorted_list =
+        sort_by === "volume"
+          ? sortByVolume(data.tickers)
+          : sortByName(data.tickers);
+      return sorted_list;
     },
   };
 }
@@ -93,7 +114,9 @@ export function getCurrencyListQueryOptions(): UseQueryOptions<
   return {
     queryKey: ["currency-list"],
     queryFn: async () => {
-      const result = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/currencies`);
+      const result = await fetch(
+        `${process.env.NEXT_PUBLIC_BASE_URL}/api/currencies`
+      );
       const data = await result.json();
 
       return data;
@@ -104,6 +127,26 @@ export function getCurrencyListQueryOptions(): UseQueryOptions<
           return [currency.symbol, currency];
         })
       );
+    },
+  };
+}
+
+export const SAVED_TICKER_LIST_KEY = ["saved-ticker-list"]
+
+function getSavedTickerSetQueryOptions(): UseQueryOptions<
+  string[],
+  Error,
+  Set<string>
+> {
+  return {
+    queryKey: SAVED_TICKER_LIST_KEY,
+    queryFn: async () => {
+      const result = await api_getSavedTickerList();
+
+      return result;
+    },
+    select: (data) => {
+      return new Set(data);
     },
   };
 }
