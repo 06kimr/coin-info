@@ -7,10 +7,11 @@ import {
   TickerListHandlerResult,
 } from "@/api/cryptocurrency/ticker/types";
 import { useQuery, UseQueryOptions } from "@tanstack/react-query";
+import Link from "next/link";
 import { FC, useState } from "react";
-import { formatNumber, sortByName, sortByVolume } from "./utils";
 import { api_getSavedTickerList } from "./api";
 import { SaveButton } from "./SaveButton";
+import { formatNumber, sortByName, sortByVolume } from "./utils";
 
 type SortType = "volume" | "name";
 export const DEFAULT_SORT = "volume";
@@ -43,24 +44,31 @@ const HomeMain: FC<Props> = () => {
             const rate = ((item.last - item.first) / item.first) * 100;
             return (
               <li key={`${item.target_currency}-${item.id}`}>
-                <span>{ticker}</span>
-                <span>{map?.get(ticker)?.name}</span>
-                <br />
-                <span>{formatNumber(item.last)}</span>
-                <br />
-                <span>
-                  {rate.toFixed(2)}%
+                <Link href={`/${ticker}`}>
+                  <span>{ticker}</span>
+                  <span>{map?.get(ticker)?.name}</span>
                   <br />
-                </span>
-                <span>{diff.toFixed(2)}</span>
-                <br />
-                <span>{formatNumber(item.quote_volume, 0)}</span>
-                <br />
-                <span>{formatNumber(item.target_volume, 0)}</span>
-                <br />
-                <SaveButton ticker={ticker} is_saved={!!saved_set?.has(ticker)} >저장</SaveButton>
-                <br />
-                <br />
+                  <span>{formatNumber(item.last)}</span>
+                  <br />
+                  <span>
+                    {rate.toFixed(2)}%
+                    <br />
+                  </span>
+                  <span>{diff.toFixed(2)}</span>
+                  <br />
+                  <span>{formatNumber(item.quote_volume, 0)}</span>
+                  <br />
+                  <span>{formatNumber(item.target_volume, 0)}</span>
+                  <br />
+                  <SaveButton
+                    ticker={ticker}
+                    is_saved={!!saved_set?.has(ticker)}
+                  >
+                    저장
+                  </SaveButton>
+                  <br />
+                  <br />
+                </Link>
               </li>
             );
           })}
@@ -131,7 +139,7 @@ export function getCurrencyListQueryOptions(): UseQueryOptions<
   };
 }
 
-export const SAVED_TICKER_LIST_KEY = ["saved-ticker-list"]
+export const SAVED_TICKER_LIST_KEY = ["saved-ticker-list"];
 
 function getSavedTickerSetQueryOptions(): UseQueryOptions<
   string[],
