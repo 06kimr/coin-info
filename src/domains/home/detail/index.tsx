@@ -9,8 +9,11 @@ import {
 } from "@/api/cryptocurrency/ticker/detail/types";
 import { useQuery, UseQueryOptions } from "@tanstack/react-query";
 import { useRouter } from "next/router";
-import { ChangeEventHandler, FC, useState } from "react";
+import { ChangeEventHandler, FC, useMemo, useRef, useState } from "react";
 import { formatNumber } from "../utils";
+import { useChart } from "./useChart";
+import { formatChartData } from "./utils";
+import { useResizeObserver } from "./useResizeObserver";
 
 export type Interval = (typeof INTERVAL_LIST)[number];
 
@@ -23,6 +26,7 @@ const CryptoCurrencyDetailMain: FC<Props> = (props) => {
   const { ticker, interval_for_initialize } = props;
 
   const router = useRouter();
+  const chart_ref = useRef<HTMLDivElement>(null);
 
   const [interval, setInterval] = useState<Interval>(
     interval_for_initialize ?? INTERVAL_LIST[0]
@@ -30,8 +34,23 @@ const CryptoCurrencyDetailMain: FC<Props> = (props) => {
 
   const { data: ticker_info } = useQuery(getTickerInfoQueryOptions({ ticker }));
   const { data: chart } = useQuery(
-    getCandleChartQueryOptions({ ticker, interval: interval })
+    getCandleChartQueryOptions({ ticker, interval })
   );
+
+  const chart_data = useMemo(() => formatChartData(chart), [chart]);
+
+  const { draw } = useChart({ chart_data });
+
+  useResizeObserver({
+    ref: chart_ref,
+    callback: (entry) => {
+      draw(entry.target);
+    },
+  });
+
+  if (chart_ref.current) {
+    // draw(chart_ref.current);
+  }
 
   const handleChangeInterval: ChangeEventHandler<HTMLInputElement> = (
     event
@@ -44,9 +63,9 @@ const CryptoCurrencyDetailMain: FC<Props> = (props) => {
     setInterval(value);
   };
 
-  console.log("data", chart);
   return (
     <main>
+      <div ref={chart_ref} style={{ height: 500 }} />
       <ol>
         {INTERVAL_LIST.map((item) => {
           return (
@@ -106,7 +125,7 @@ interface GetCandleChartQueryOptionParams {
   interval: Interval;
 }
 
-type GetCandleChartResponse = Extract<
+export type GetCandleChartResponse = Extract<
   ChartHandlerResult,
   GetCandleChartReturnType
 >;
@@ -119,6 +138,7 @@ function getCandleChartQueryOptions(
   GetCandleChartResponse["chart"]
 > {
   const { ticker, interval } = params;
+
   return {
     queryKey: ["candle-chart", ticker, interval],
     queryFn: async () => {
@@ -132,10 +152,11 @@ function getCandleChartQueryOptions(
           body: JSON.stringify({ interval }),
         }
       );
-
       const data = await result.json();
-      console.log(data);
       return data;
+    },
+    select: (data) => {
+      return data.chart;
     },
   };
 }
